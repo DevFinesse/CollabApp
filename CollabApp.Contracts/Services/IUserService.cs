@@ -1,0 +1,17 @@
+﻿using CollabApp.Shared.Abstractions;
+using CollabApp.Shared.Dtos.User;
+
+namespace CollabApp.Contracts.Services
+{
+    public interface IUserService
+    {
+        Task<Result<UserResponse>> GetAsync(string userId);
+        Task<Result<UserResponse>> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default);
+        Task<Result> UpdateAsync(string userId, UpdateUserRequest request, CancellationToken cancellationToken = default);
+        Task<Result> ToggleStatusAsync(string id);
+        Task<Result> UnlockAsync(string id);
+        Task<Result<UserProfileResponse>> GetProfileInfoAsync(string userId);
+        Task<Result> UpdateProfileAsync(string userId, UpdateProfileRequest request);
+        Task<Result> ChangePasswordAsync(string userId, ChangePasswordRequest request);
+    }
+}

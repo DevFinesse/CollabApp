@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="CollabApp.AppHost/CollabApp.AppHost.csproj" />
+  <Project Path="CollabApp.Application/CollabApp.Application.csproj" />
+  <Project Path="CollabApp.Contracts/CollabApp.Contracts.csproj" />
+  <Project Path="CollabApp.Domain/CollabApp.Domain.csproj" />
+  <Project Path="CollabApp.Infrastructure/CollabApp.Infrastructure.csproj" />
+  <Project Path="CollabApp.ServiceDefaults/CollabApp.ServiceDefaults.csproj" />
+  <Project Path="CollabApp.Shared/CollabApp.Shared.csproj" />
+  <Project Path="CollabApp/CollabApp.csproj" />
+</Solution>
