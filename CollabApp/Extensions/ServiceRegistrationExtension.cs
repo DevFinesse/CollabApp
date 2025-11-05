@@ -5,6 +5,7 @@ using CollabApp.Extensions;
 using CollabApp.Infrastructure.Persistence.Repository;
 using CollabApp.Infrastructure.Services;
 using CollabApp.Infrastructure.Authentication;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 namespace CollabApp.Extensions
 {
@@ -23,7 +24,8 @@ namespace CollabApp.Extensions
             services.AddScoped<IRoleRepository, RoleRepository>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IRoleService, RoleService>();
-
+            services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IEmailSender, EmailSender>(); // Add this line
         }
     }
 }

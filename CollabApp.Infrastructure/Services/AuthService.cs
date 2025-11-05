@@ -1,6 +1,216 @@
-﻿namespace CollabApp.Infrastructure.Services
+﻿using CollabApp.Contracts.Authentication;
+using CollabApp.Contracts.Repository;
+using CollabApp.Domain.Entities;
+using CollabApp.Shared.Abstractions;
+using CollabApp.Shared.Common.ErrorHandler;
+using CollabApp.Shared.Dtos.Authentication;
+using CollabApp.Shared.Util;
+using Hangfire;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace CollabApp.Infrastructure.Services
 {
-    internal class AuthService
+    public class AuthService(
+            UserManager<User> userManager,
+            SignInManager<User> signInManager,
+            IJwtProvider jwtProvider,
+            ILogger<AuthService> logger,
+            IHttpContextAccessor httpContextAccessor,
+            IEmailSender emailSender,
+            IRoleClaimRepository roleClaimRepository
+        ) : IAuthService
     {
+
+        private readonly UserManager<User> _userManager = userManager;
+        private readonly SignInManager<User> _signInManager = signInManager;
+        private readonly IJwtProvider _jwtProvider = jwtProvider;
+        private readonly ILogger<AuthService> _logger = logger;
+        private readonly int _refreshTokenExpirationDays = 14;
+        private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
+        private readonly IEmailSender _emailSender = emailSender;
+        private readonly IRoleClaimRepository _roleClaimRepository = roleClaimRepository;
+
+
+        public async Task<Result<AuthResponse>> GetTokenAsync(LoginRequest loginRequest, CancellationToken cancellationToken = default)
+        {
+            if (await _userManager.FindByEmailAsync(loginRequest.Email) is not { } user)
+                return Result.Failure<AuthResponse>(UserErrors.InvalidCredentials);
+
+            if (user.IsDisabled)
+                return Result.Failure<AuthResponse>(UserErrors.DisabledUser);
+
+            var result = await _signInManager.PasswordSignInAsync(user, loginRequest.Password, isPersistent: false, lockoutOnFailure: true);
+
+            if(result.Succeeded)
+            {
+                var (roles, permissions) = await _roleClaimRepository.GetUserRolesPermissions(user, cancellationToken);
+                var (token, expiresIn) = _jwtProvider.GenerateJwtToken(user, roles, permissions);
+
+                var refreshToken = GenerateRefreshToken();
+                var refreshTokenExpiration = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays);
+
+                user.RefreshTokens.Add(new RefreshToken
+                {
+                    Token = refreshToken,
+                    ExpiresOn = refreshTokenExpiration
+                });
+                
+                await _userManager.UpdateAsync(user);
+                var response =  new AuthResponse(user.Id, user.Email, user.FirstName, user.LastName, token, expiresIn, refreshToken, refreshTokenExpiration);
+                return Result.Success(response);
+            }
+
+            var error = result.IsNotAllowed
+                ? UserErrors.EmailNotConfirmed
+                : result.IsLockedOut
+                ? UserErrors.LockedUser
+                : UserErrors.InvalidCredentials;
+
+            return Result.Failure<AuthResponse>(error);
+        }
+
+        public async Task<Result<AuthResponse>> GetRefreshTokenAsync(RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken = default)
+        {
+            var userId = _jwtProvider.ValidateToken(refreshTokenRequest.Token);
+            if (userId is null)
+            {
+                return Result.Failure<AuthResponse>(UserErrors.InvalidJwtTokens);
+            }
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return Result.Failure<AuthResponse>(UserErrors.InvalidJwtTokens);
+
+            if (user.IsDisabled)
+                return Result.Failure<AuthResponse>(UserErrors.DisabledUser);
+
+            if (user.LockoutEnd > DateTime.UtcNow)
+                return Result.Failure<AuthResponse>(UserErrors.LockedUser);
+
+            var userRefreshToken = user.RefreshTokens.SingleOrDefault(x => x.Token == refreshTokenRequest.RefreshToken && x.IsActive);
+
+            if (userRefreshToken is null)
+                return Result.Failure<AuthResponse>(UserErrors.InvalidRefreshToken);
+
+            userRefreshToken.RevokedOn = DateTime.UtcNow;
+
+            var (roles, permissions) = await _roleClaimRepository.GetUserRolesPermissions(user, cancellationToken);
+
+            var (newToken, expiresIn) = _jwtProvider.GenerateJwtToken(user, roles, permissions);
+
+            var newRefreshToken = GenerateRefreshToken();
+            var newRefreshTokenExpiration = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays);
+
+            user.RefreshTokens.Add(new RefreshToken
+            {
+                Token = newRefreshToken,
+                ExpiresOn = newRefreshTokenExpiration
+            });
+
+            await _userManager.UpdateAsync(user);
+            var response = new AuthResponse(user.Id, user.Email, user.FirstName, user.LastName, newToken, expiresIn, newRefreshToken, newRefreshTokenExpiration);
+            return Result.Success(response);
+        }
+
+        
+
+        public async Task<Result> ResetPasswordAsync(ResetPasswordRequest request)
+        {
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user is null || !user.EmailConfirmed)
+                return Result.Failure(UserErrors.InvalidCode);
+
+            if (user.IsDisabled)
+                return Result.Failure(UserErrors.DisabledUser);
+
+            IdentityResult result;
+            try
+            {
+                var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.Code));
+                result = await _userManager.ResetPasswordAsync(user, code, request.NewPassword);
+            }
+            catch (FormatException)
+            {
+                result = IdentityResult.Failed(_userManager.ErrorDescriber.InvalidToken());
+            }
+            if (result.Succeeded)
+                return Result.Success();
+            else
+            {
+                var error = result.Errors.First();
+                return Result.Failure(new Error(error.Code, error.Description, StatusCodes.Status401Unauthorized));
+            }
+        }
+
+        public async Task<Result> RevokeRefreshTokenAsync(RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken = default)
+        {
+            var userId = _jwtProvider.ValidateToken(refreshTokenRequest.Token);
+            if (userId is null)
+                return Result.Failure(UserErrors.InvalidJwtTokens);
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user is null)
+                return Result.Failure(UserErrors.InvalidJwtTokens);
+
+            if (user.IsDisabled)
+                return Result.Failure(UserErrors.DisabledUser);
+
+            if (user.LockoutEnd > DateTime.UtcNow)
+                return Result.Failure(UserErrors.LockedUser);
+
+            var userRefreshToken = user.RefreshTokens.SingleOrDefault(x => x.Token == refreshTokenRequest.RefreshToken && x.IsActive);
+
+            if (userRefreshToken is null)
+                return Result.Failure(UserErrors.InvalidRefreshToken);
+
+            userRefreshToken.RevokedOn = DateTime.UtcNow;
+
+            await _userManager.UpdateAsync(user);
+            return Result.Success();
+        }
+
+        public async Task<Result> SendResetPasswordCodeAsync(string email)
+        {
+            if (await _userManager.FindByEmailAsync(email) is not { } user)
+                return Result.Success();
+
+            if (user.IsDisabled)
+                return Result.Failure(UserErrors.DisabledUser);
+
+            var code = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+            _logger.LogInformation("Reset password code: {code}", code);
+
+            // Send code through email
+            await SendResetPasswordEmail(user, code);
+
+            return Result.Success();
+        }
+        private async Task SendResetPasswordEmail(User user, string code)
+        {
+            var origin = _httpContextAccessor.HttpContext?.Request.Headers.Origin;
+
+            var emailBody = EmailBodyBuilder.GenerateEmailBody("ForgetPassword",
+                templateModel: new Dictionary<string, string>
+                {
+                { "{{name}}", user.FirstName },
+                    { "{{action_url}}", $"{origin}/auth/forgetPassword?email={user.Email}&code={code}" }
+                }
+            );
+
+            BackgroundJob.Enqueue(() => _emailSender.SendEmailAsync(user.Email!, "✅ Restaurant: Change Password", emailBody));
+            await Task.CompletedTask;
+        }
+        private static string GenerateRefreshToken()
+        {
+            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        }
     }
 }

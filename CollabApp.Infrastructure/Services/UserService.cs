@@ -33,7 +33,15 @@ namespace CollabApp.Infrastructure.Services
                 return Result.Failure<UserResponse>(UserErrors.UserNotFound);
 
             var roles = await _userManager.GetRolesAsync(user);
-            var response = (user, roles).Adapt<UserResponse>();
+            var response = new UserResponse(
+                               Id: user.Id,
+                               FirstName: user.FirstName,
+                               LastName: user.LastName,
+                               Email: user.Email ?? string.Empty,
+                               Status: user.Status,
+                               IsDisabled: user.IsDisabled,
+                               Roles: roles
+                           );
             return Result.Success(response);
         }
 

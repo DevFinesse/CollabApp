@@ -1,12 +1,11 @@
-﻿using CollabApp.Domain.Entities;
-using CollabApp.Domain.Entities.ConfigurationModels;
+﻿using CollabApp.Application.Settings;
+using CollabApp.Domain.Entities;
 using CollabApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Linq;
 
 namespace CollabApp.Extensions
 {
@@ -43,36 +42,36 @@ namespace CollabApp.Extensions
 
         public static void ConfigureJWT(this IServiceCollection services, IConfiguration configuration)
         {
-            var jwtConfiguration = new JwtConfiguration();
-            configuration.Bind(jwtConfiguration.Section, jwtConfiguration);
-
-            var secretKey = Environment.GetEnvironmentVariable("SECRET");
-            if (string.IsNullOrEmpty(secretKey))
+            var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
+            
+            if (jwtOptions == null || string.IsNullOrEmpty(jwtOptions.Key))
             {
-                secretKey = "superSecretKey@345superSecretKey@345superSecretKey@345superSecretKey@345";
+                throw new InvalidOperationException("JWT configuration is missing or invalid.");
             }
 
             services.AddAuthentication(opt =>
             {
                 opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            }).AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtConfiguration.ValidIssuer,
-                    ValidAudience = jwtConfiguration.ValidAudience,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
-                };
-            });
+            })
+     .AddJwtBearer(options =>
+   {
+         options.TokenValidationParameters = new TokenValidationParameters
+     {
+         ValidateIssuer = true,
+       ValidateAudience = true,
+           ValidateLifetime = true,
+    ValidateIssuerSigningKey = true,
+          ValidIssuer = jwtOptions.Issuer,
+        ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key))
+     };
+     });
         }
 
-        public static void AddJwtConfiguration(this IServiceCollection services, IConfiguration configuration) =>
-            services.Configure<JwtConfiguration>(configuration.GetSection("JwtSettings"));
+        public static void AddJwtConfiguration(this IServiceCollection services, IConfiguration configuration)
+        {
+      services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        }
     }
-
 }

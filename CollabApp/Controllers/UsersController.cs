@@ -1,4 +1,5 @@
 ﻿using CollabApp.Application.Users.Commands.Models;
+using CollabApp.Application.Users.Queries.Models;
 using CollabApp.Extensions;
 using CollabApp.Infrastructure.Authentication.Permission;
 using CollabApp.Shared.Abstractions;
@@ -24,10 +25,19 @@ namespace CollabApp.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> Get(string id)
+        //[HasPermission(Permissions.GetUsers)]
+        public async Task<IActionResult> Get([FromRoute]string id)
         {
-            // Placeholder for Get method - implement as needed
-            return Ok(new { message = "Get method not implemented yet" });
+            var result = await _mediator.Send(new GetUserCommand(id));
+            return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+        }
+
+        [HttpPut("{id}")]
+       // [HasPermission(Permissions.UpdateUsers)]
+        public async Task<IActionResult> Update([FromRoute] string id, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(new UpdateUserCommand(id, request), cancellationToken);
+            return result.IsSuccess ? NoContent() : result.ToProblem();
         }
     }
 }
