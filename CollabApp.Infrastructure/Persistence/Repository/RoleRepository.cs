@@ -1,5 +1,4 @@
 ﻿using CollabApp.Contracts.Repository;
-using CollabApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace CollabApp.Infrastructure.Persistence.Repository

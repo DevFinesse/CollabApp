@@ -24,4 +24,8 @@
     <Folder Include="Common\Validators\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\CollabApp.Domain\CollabApp.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

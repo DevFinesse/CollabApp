@@ -6,7 +6,7 @@ namespace CollabApp.Domain.Entities
     {
         public ApplicationRole()
         {
-            // Let Identity handle Id generation
+            Id = Guid.CreateVersion7().ToString();
         }
 
         public bool IsDeleted { get; set; }

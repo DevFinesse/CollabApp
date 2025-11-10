@@ -1,6 +1,8 @@
-﻿namespace CollabApp.Contracts.Repository
+﻿using CollabApp.Domain.Entities;
+
+namespace CollabApp.Contracts.Repository
 {
-    public interface IRoomRepository
+    public interface IRoomRepository : IRepositoryBase<Room>
     {
     }
 }

@@ -27,33 +27,7 @@ var mappingConfig = TypeAdapterConfig.GlobalSettings;
 mappingConfig.Scan(Assembly.GetExecutingAssembly());
 mappingConfig.Scan(typeof(CollabApp.Application.Users.Commands.Models.CreateUserCommand).Assembly);
 
-// explicit mapping: (User, roles) -> UserResponse
-TypeAdapterConfig<(CollabApp.Domain.Entities.User user, IEnumerable<string> roles), CollabApp.Shared.Dtos.User.UserResponse>
-    .NewConfig()
-    .Map(dest => dest.Id, src => src.user.Id)
-  .Map(dest => dest.FirstName, src => src.user.FirstName)
- .Map(dest => dest.LastName, src => src.user.LastName)
-    .Map(dest => dest.Email, src => src.user.Email!)
-    .Map(dest => dest.Status, src => src.user.Status)
-    .Map(dest => dest.IsDisabled, src => src.user.IsDisabled)
-    .Map(dest => dest.Roles, src => src.roles);
 
-// explicit mapping: CreateUserRequest -> User
-TypeAdapterConfig<CollabApp.Shared.Dtos.User.CreateUserRequest, CollabApp.Domain.Entities.User>
-    .NewConfig()
-    .Map(dest => dest.FirstName, src => src.FirstName)
-    .Map(dest => dest.LastName, src => src.LastName)
-    .Map(dest => dest.UserName, src => src.UserName)
-    .Map(dest => dest.Email, src => src.Email)
-    .Ignore(dest => dest.Id)
-    .Ignore(dest => dest.SecurityStamp)
-    .Ignore(dest => dest.Status)
-    .Ignore(dest => dest.IsDisabled)
-    .Ignore(dest => dest.CreatedAt)
- .Ignore(dest => dest.Members)
-    .Ignore(dest => dest.Chats)
-    .Ignore(dest => dest.Messages)
-    .Ignore(dest => dest.RefreshTokens);
 
 builder.Services.AddSingleton<IMapper>(new Mapper(mappingConfig));
 

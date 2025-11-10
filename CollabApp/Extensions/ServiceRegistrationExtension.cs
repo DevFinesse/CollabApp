@@ -22,9 +22,12 @@ namespace CollabApp.Extensions
             services.AddScoped(typeof(IRepositoryBase<>), typeof(RepositoryBase<>));
             services.AddScoped<IRoleClaimRepository, RoleClaimRepository>();
             services.AddScoped<IRoleRepository, RoleRepository>();
+            services.AddScoped<IRoomRepository, RoomRepository>();
+
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IRoomService, RoomService>();
             services.AddScoped<IEmailSender, EmailSender>(); // Add this line
         }
     }

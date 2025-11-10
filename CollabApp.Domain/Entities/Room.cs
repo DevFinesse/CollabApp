@@ -6,7 +6,7 @@ namespace CollabApp.Domain.Entities
     {
         [Column("RoomId")]
         public Guid Id { get; set; }
-        public string Name { get; set; } = string.Empty;
+        public string? Name { get; set; } 
         public string? Description { get; set; }
 
         [ForeignKey(nameof(User))]
