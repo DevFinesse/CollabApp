@@ -1,8 +1,5 @@
 ﻿using CollabApp.Shared.Abstractions;
 using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace CollabApp.Shared.Common.ErrorHandler
 {

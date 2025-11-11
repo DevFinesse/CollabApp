@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\CollabApp.Application\CollabApp.Application.csproj" />
     <ProjectReference Include="..\CollabApp.Infrastructure\CollabApp.Infrastructure.csproj" />
     <ProjectReference Include="..\CollabApp.ServiceDefaults\CollabApp.ServiceDefaults.csproj" />
   </ItemGroup>

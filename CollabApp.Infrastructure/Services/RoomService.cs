@@ -2,7 +2,9 @@
 using CollabApp.Contracts.Services;
 using CollabApp.Domain.Entities;
 using CollabApp.Shared.Abstractions;
+using CollabApp.Shared.Common.ErrorHandler;
 using CollabApp.Shared.Dtos.Room;
+using CollabApp.Shared.Dtos.User;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,18 +19,8 @@ namespace CollabApp.Infrastructure.Services
             _roomRepository = roomRepository;
         }
 
-        public async Task<Result<RoomResponse>> AddAsync(string userId, RoomRequest request, CancellationToken cancellationToken = default)
+        public async Task<Result<RoomResponse>> AddAsync(string userId, CreateRoomRequest request, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                if (string.IsNullOrEmpty(request.Name))
-                {
-                    return Result.Failure<RoomResponse>(new Error(
-                        "Room.InvalidName",
-                        "Room name is required",
-                        StatusCodes.Status400BadRequest));
-                }
-
                 var room = new Room
                 {
                     Name = request.Name,
@@ -48,64 +40,29 @@ namespace CollabApp.Infrastructure.Services
                 );
 
                 return Result.Success(response);
-            }
-            catch (Exception ex)
-            {
-                return Result.Failure<RoomResponse>(new Error(
-                    "Room.AddError",
-                    ex.Message,
-                    StatusCodes.Status500InternalServerError));
-            }
+            
+           
         }
 
         public async Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                if (id == Guid.Empty)
-                {
-                    return Result.Failure(new Error(
-                        "Room.InvalidId",
-                        "Invalid room ID provided",
-                        StatusCodes.Status400BadRequest));
-                }
-
                 var room = await _roomRepository.GetAsQueryable()
                     .Where(x => x.Id == id)
                     .SingleOrDefaultAsync(cancellationToken);
 
-                if (room is null)
-                {
-                    return Result.Failure(new Error(
-                        "Room.NotFound",
-                        $"Room with ID {id} was not found",
-                        StatusCodes.Status404NotFound));
-                }
+                if (room == null)
+                return Result.Failure<RoomResponse>(RoomError.RoomNotFound);
 
-                await _roomRepository.DeleteAsync(room, cancellationToken);
+
+
+
+            await _roomRepository.DeleteAsync(room, cancellationToken);
                 return Result.Success();
-            }
-            catch (Exception ex)
-            {
-                return Result.Failure(new Error(
-                    "Room.DeleteError",
-                    ex.Message,
-                    StatusCodes.Status500InternalServerError));
-            }
+           
         }
 
         public async Task<Result<RoomResponse>> GetAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                if (id == Guid.Empty)
-                {
-                    return Result.Failure<RoomResponse>(new Error(
-                        "Room.InvalidId",
-                        "Invalid room ID provided",
-                        StatusCodes.Status400BadRequest));
-                }
-
                 var room = await _roomRepository.GetAsQueryable()
                     .Where(x => x.Id == id)
                     .Select(x => new RoomResponse(
@@ -117,62 +74,29 @@ namespace CollabApp.Infrastructure.Services
                     ))
                     .SingleOrDefaultAsync(cancellationToken);
 
-                if (room is null)
-                {
-                    return Result.Failure<RoomResponse>(new Error(
-                        "Room.NotFound",
-                        $"Room with ID {id} was not found",
-                        StatusCodes.Status404NotFound));
-                }
+            if (room == null)
+                return Result.Failure<RoomResponse>(RoomError.RoomNotFound);
 
-                return Result.Success(room);
-            }
-            catch (Exception ex)
-            {
-                return Result.Failure<RoomResponse>(new Error(
-                    "Room.GetError",
-                    ex.Message,
-                    StatusCodes.Status500InternalServerError));
-            }
+
+
+            return Result.Success(room);
+            
         }
 
         public async Task<Result> UpdateAsync(Guid id, UpdateRoomRequest request, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                if (id == Guid.Empty)
-                {
-                    return Result.Failure(new Error(
-                        "Room.InvalidId",
-                        "Invalid room ID provided",
-                        StatusCodes.Status400BadRequest));
-                }
-
+        { 
                 var room = await _roomRepository.GetByIdAsync(id, cancellationToken);
 
-                if (room is null)
-                {
-                    return Result.Failure(new Error(
-                        "Room.NotFound",
-                        $"Room with ID {id} was not found",
-                        StatusCodes.Status404NotFound));
-                }
+            if (room == null)
+                return Result.Failure<RoomResponse>(RoomError.RoomNotFound);
 
-                // Update room properties
-                room.Name = request.Name ?? room.Name;
-                room.Description = request.Description ?? room.Description;
+            // Update room properties
+            room.Name = request.Name ?? room.Name;
+            room.Description = request.Description ?? room.Description;
 
                 await _roomRepository.UpdateAsync(room, cancellationToken);
 
                 return Result.Success();
-            }
-            catch (Exception ex)
-            {
-                return Result.Failure(new Error(
-                    "Room.UpdateError",
-                    ex.Message,
-                    StatusCodes.Status500InternalServerError));
-            }
         }
     }
 }

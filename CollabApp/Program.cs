@@ -27,13 +27,13 @@ var mappingConfig = TypeAdapterConfig.GlobalSettings;
 mappingConfig.Scan(Assembly.GetExecutingAssembly());
 mappingConfig.Scan(typeof(CollabApp.Application.Users.Commands.Models.CreateUserCommand).Assembly);
 
-
-
 builder.Services.AddSingleton<IMapper>(new Mapper(mappingConfig));
 
+// Register validators from both Web and Application assemblies
 builder.Services
     .AddFluentValidationAutoValidation()
-    .AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+    .AddValidatorsFromAssembly(Assembly.GetExecutingAssembly())
+    .AddValidatorsFromAssembly(typeof(CollabApp.Application.Users.Commands.Models.CreateUserCommand).Assembly);
 
 builder.Services.AddMediatR(cfg => 
 {
